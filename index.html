@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <title>Ball Maze</title>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+        <!-- Physics Dependencies -->
+        <script src="https://preview.babylonjs.com/ammo.js"></script>
+        <script src="https://preview.babylonjs.com/cannon.js"></script>
+        <script src="https://preview.babylonjs.com/Oimo.js"></script>
+
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+        <script src="https://dorukeker.github.io/gyronorm_samples/demo/gyronorm.complete.min.js"></script>
+        <script src="https://code.jquery.com/pep/0.4.3/pep.js"></script>
+    </head>
+
+   <body>
+
+    <canvas id="renderCanvas" touch-action="none"></canvas> //touch-action="none" for best results from PEP
+
+    <script>
+        var canvas = document.getElementById("renderCanvas"); // Get the canvas element 
+        var engine = new BABYLON.Engine(canvas, true); // Generate the BABYLON 3D engine
+
+        var init_gn = function() {
+            gn = new GyroNorm();
+
+            gn.init({}).then(function() {
+            var isAvailable = gn.isAvailable();
+            if(!isAvailable.deviceOrientationAvailable) {
+                console.log('Device orientation is not available.');
+            }
+
+            if(!isAvailable.accelerationAvailable) {
+                console.log('Device acceleration is not available.');
+            }
+
+            if(!isAvailable.accelerationIncludingGravityAvailable) {
+                console.log('Device acceleration incl. gravity is not available.');
+            } 
+
+            if(!isAvailable.rotationRateAvailable) {
+                console.log('Device rotation rate is not available.');
+            }
+
+            start_gn();
+            }).catch(function(e){
+                console.log(e);
+            });
+
+        }
+
+        /******* Add the create scene function ******/
+        var createScene = function () {
+
+            // This creates a basic Babylon Scene object (non-mesh)
+            var scene = new BABYLON.Scene(engine);
+            scene.enablePhysics();
+
+            // This creates and positions a camera (non-mesh)
+            //var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 0, -10), scene);
+            var camera = new BABYLON.FollowCamera("FollowCam", new BABYLON.Vector3(0, 0, 0), scene);
+            // The goal distance of camera from target
+            camera.radius = 15;
+            camera.heightOffset = 15;
+            // The goal rotation of camera around local origin (centre) of target in x y plane
+            camera.rotationOffset = 0;
+            //camera.setTarget(BABYLON.Vector3.Zero());
+            camera.attachControl(canvas, true);
+
+            // This targets the camera to scene origin
+            //camera.setTarget(BABYLON.Vector3.Zero());
+
+            // This attaches the camera to the canvas
+            //camera.attachControl(canvas, false);
+
+            // Create environment
+            var hdrTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./textures/environment.dds", scene);
+            hdrTexture.name = "envTex";
+            hdrTexture.gammaSpace = false;
+            scene.environmentTexture = hdrTexture;
+            scene.createDefaultSkybox(hdrTexture, true, 200, 0.7);
+
+            // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+            var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+            // Default intensity is 1. Let's dim the light a small amount
+            light.intensity = .7;
+
+            BABYLON.SceneLoader.Append("./", "maze.glb", scene, function (scene) {
+                var walls = scene.getMeshByName("walls");
+                var ground = scene.getMeshByName('groundPlane');
+                var ball = scene.getMeshByName('marble');
+                walls.setParent(null);
+                ground.setParent(null);
+                ball.setParent(null);
+                ballPosition = ball.position;
+                ballPosition.y = ballPosition.y + 20;
+
+                setCameraStartPosition(scene);
+                ball.physicsImpostor = new BABYLON.PhysicsImpostor(ball, BABYLON.PhysicsImpostor.SphereImpostor, { mass:2, friction:0.5, restitution:0.9 }, scene);
+                walls.physicsImpostor = new BABYLON.PhysicsImpostor(walls, BABYLON.PhysicsImpostor.MeshImpostor, { mass:0, friction:1, restitution:0.9 }, scene);  
+                ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass:0, friction:1, restitution:0.9 }, scene);  
+
+            });
+    
+            return scene;
+
+        };
+
+        init_gn();
+        var scene = createScene(); //Call the createScene function
+
+        // Register a render loop to repeatedly render the scene
+        engine.runRenderLoop(function () { 
+            scene.render();
+        });
+
+        // Watch for browser/canvas resize events
+        window.addEventListener("resize", function () { 
+                engine.resize();
+        });
+
+        setCameraStartPosition = function(scene) {
+            var ball = scene.getMeshByName("marble");
+            var camera = scene.getCameraByName('FollowCam');
+            camera.lockedTarget = ball; //version 2.5 onwards
+        }
+    </script>
+
+   </body>
+
+</html>
+
